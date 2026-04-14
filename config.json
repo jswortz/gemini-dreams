@@ -19,6 +19,12 @@
     },
     "db_path": "~/.gemini/dream_metrics.db",
     "state_path": "~/.gemini/dream_state.json",
+    "bigquery": {
+        "enabled": false,
+        "project_id": "your-project-id",
+        "dataset_id": "gemini_dreams",
+        "table_prefix": "dream_"
+    },
     "headless_command": [
         "gemini",
         "run",
