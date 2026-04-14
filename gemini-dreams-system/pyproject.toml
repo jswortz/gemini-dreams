@@ -1,0 +1,27 @@
+[project]
+name = "gemini-dreams"
+version = "0.1.5"
+description = "A self-improving agent system for analyzing logs and enforcing skill evals."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Gemini CLI" },
+]
+dependencies = [
+    "pandas",
+    "streamlit",
+    "fastapi",
+    "uvicorn",
+    "google-cloud-bigquery",
+    "google-genai",
+]
+
+[project.scripts]
+dream = "dream:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["dream", "dream_runner", "eval_checker", "config_loader", "dream_dashboard"]
