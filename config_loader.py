@@ -33,7 +33,8 @@ def get_default_config():
             "table_prefix": "dream_"
         },
         "headless_command": ["gemini", "run", "--headless"],
-        "post_process_action": "keep"
+        "post_process_action": "keep",
+        "skill_repository": "~/my-skills"
         }
 def load_config(config_path=None):
     if config_path is None:
