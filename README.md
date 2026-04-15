@@ -15,70 +15,7 @@ The Gemini Dreams system utilizes native CLI hooks to automate the collection an
 
 ### 🔄 System Flow Diagram
 
-```mermaid
-graph TD
-    %% Core Components
-    subgraph "1. Agent Execution"
-        GCLI[Gemini CLI]
-        CC[Claude Code]
-    end
-
-    subgraph "2. Hooks Triggered"
-        AAH[AfterAgent Hook]
-        GCLI -- "Turn Ends" --> AAH
-        CC -- "Turn Ends" --> AAH
-    end
-
-    subgraph "3. Native Log Hook"
-        NLH(native_log_hook.py)
-        AAH -- "Triggers" --> NLH
-        
-        NLH -.-> |Captures| P[prompt & prompt_response]
-        NLH -.-> |Measures| L[latency_ms]
-        NLH -.-> |Scans VERSION files| SL[Skill Lineage]
-    end
-
-    subgraph "4. Data Flow (Grouped by Agent)"
-        S_GEM[(~/.gemini/sessions/*.jsonl)]
-        S_JET[(~/.jetski/sessions/*.jsonl)]
-        
-        NLH -- "agent_name=gemini_cli" --> S_GEM
-        NLH -- "agent_name=jetski" --> S_JET
-    end
-
-    subgraph "5. Consumption & Analysis"
-        DR(Dream Runner <br/> dream_runner.py)
-        S_GEM --> |Reads| DR
-        S_JET --> |Reads| DR
-        
-        DR -.-> |Groups By| SID[session_id]
-        DR -.-> |Analyzes| A[Token Waste & Epiphanies]
-    end
-
-    subgraph "6. Storage & Post-Process"
-        SQL[(SQLite Database)]
-        DR -- "Stores Analysis" --> SQL
-        
-        PPA{Post-Process Actions}
-        DR -- "Executes" --> PPA
-        PPA --> |Keep| K([Keep Logs])
-        PPA --> |Delete| D([Delete Logs])
-        PPA --> |Backup| B([Backup Logs])
-    end
-
-    %% Styling
-    classDef primary fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
-    classDef secondary fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
-    classDef database fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
-    classDef highlight fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
-    classDef action fill:#ffebee,stroke:#b71c1c,stroke-width:2px,color:#000
-
-    class GCLI,CC primary
-    class AAH,NLH secondary
-    class S_GEM,S_JET,SQL database
-    class DR highlight
-    class PPA,K,D,B action
-```
+![Gemini Dreams System Flow (PaperBanana style)](docs/gemini_dreams_architecture_paperbanana.png)
 
 ### 💡 Detailed Flow Description
 
@@ -90,7 +27,7 @@ graph TD
    * **Skill Lineage**: It intelligently scans the local environment's `VERSION` files (like the `dream-analyzer/VERSION` skill) to trace which tool iterations the agent had access to during execution.
 4. **Data Flow**: Based on the context gathered, the hook groups the interaction by `agent_name`. It then serializes this structured data and appends it to localized `.jsonl` files (e.g., inside `~/.gemini/sessions/` or `~/.jetski/sessions/`).
 5. **Consumption**: The `Dream Runner` (`dream_runner.py`) acts as the background orchestrator. It sweeps these directories to ingest the raw JSONL logs, groups the disparate interactions by their common `session_id`, and runs analytical routines to map out critical patterns—such as identifying **token waste** (inefficient loops) and **epiphanies** (successful strategy breakthroughs).
-6. **Post-Process Action**: Finally, the processed insights are committed to a local **SQLite database** for historical querying. Depending on predefined configurations or the analysis results, `dream_runner.py` executes a final lifecycle action on the raw JSONL logs: either deciding to **keep** them, securely **backup** them to remote storage, or automatically **delete** them to save space.
+6. **Post-Process Action**: Finally, the processed insights are batched and ingested into a **BigQuery Analytical Pipeline** (eliminating synchronous latency). Depending on predefined configurations, `dream_runner.py` executes a final lifecycle action on the raw `.jsonl` logs: either deciding to securely **backup** them or automatically **delete** them to save space in the local buffer.
 
 ---
 
@@ -118,9 +55,11 @@ To avoid processing every interaction, the system applies two filters:
 For each high-impact session, the script extracts the last 10 messages and sends them to the **Dream Analyzer** (running headlessly). The analyzer looks for:
 - **Repetition**: Did the user or agent repeat instructions?
 - **Token Waste**: Were there unnecessarily long responses or redundant context?
-- **Skill Gaps**: Could a dedicated skill (like `antigravity` or `jetski`) have handled this better?
+- **Skill Gaps (Framework-Aware)**: Could a native feature (like Jetski subagents, Antigravity MCP workflows, or Claude Code/Gemini CLI hooks) handle this better? If a gap is detected, the runner **autonomously drafts** the `.md` instructions.
+- **Extension Packaging**: For CLI frameworks, it can formally package code structures into extensions (e.g. `geminicli.com/extensions`).
+- **Configurable Synthesis**: Instead of writing to generic folders, new skills are routed completely into your customizable `skill_repository` (e.g., your `~/my-skills` source-of-truth).
 
-Proposals are saved to the local SQLite database and can be reviewed in the Dashboard.
+Results are sent via batched ingestion to **BigQuery** and can be visualized live via the Cloud Run frontend Dashboard.
 
 ---
 
