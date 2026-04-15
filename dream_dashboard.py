@@ -59,6 +59,34 @@ if not coverage_df.empty:
 else:
     st.info("No coverage data available. Ensure eval_checker.py is running.")
 
+
+def load_config_bq():
+    import json
+    try:
+        with open("config.json", "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"bigquery": {"project_id": "wortz-project-352116", "dataset_id": "gemini_dreams"}}
+
+# ---- 1A. Skill Evaluation Metrics ----
+st.header("1A. Skill Evaluation Metrics")
+bq_conf = load_config_bq()
+query_results = f"SELECT skill_name, passed, failed FROM `{bq_conf['bigquery']['project_id']}.{bq_conf['bigquery']['dataset_id']}.dream_eval_results`"
+try:
+    from google.cloud import bigquery
+    client = bigquery.Client(project=bq_conf['bigquery']['project_id'])
+    results_df = client.query(query_results).to_dataframe()
+    if not results_df.empty:
+        results_df['success_rate'] = (results_df['passed'] / (results_df['passed'] + results_df['failed']) * 100).fillna(0)
+        st.bar_chart(results_df.set_index('skill_name')['success_rate'])
+        st.write("Current Evaluation results:")
+        st.dataframe(results_df, use_container_width=True)
+    else:
+        st.info("No eval metric results available.")
+except Exception as e:
+    st.error(f"Could not load eval metrics: {e}")
+
+
 # ---- 2. Session Analysis (The "Dreams") ----
 st.header("2. Dream Epiphanies & Token Waste Analysis")
 analysis_df = load_data("SELECT timestamp, session_id, turn_count, epiphanies FROM session_analysis ORDER BY timestamp DESC LIMIT 10")
@@ -68,7 +96,7 @@ if not analysis_df.empty:
     for idx, row in analysis_df.iterrows():
         with st.expander(f"Session {row['session_id']} (Turns: {row['turn_count']}) - {row['timestamp']}"):
             st.markdown("**Agent's Epiphany / Proposed Skill Update:**")
-            st.text_area("", value=row['epiphanies'], height=200, disabled=True, key=f"text_area_{idx}_{row['session_id']}")
+            st.markdown(row['epiphanies'])
 else:
     st.info("No dream sessions logged yet. Ensure dream_runner.py runs nightly.")
 
