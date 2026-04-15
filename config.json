@@ -29,5 +29,6 @@
         "gemini",
         "run",
         "--headless"
-    ]
+    ],
+    "skill_repository": "~/my-skills"
 }

@@ -101,7 +101,7 @@ def analyze_session_headlessly(session_data, agent_name, config):
         "Analyze the transcript and actively search for patterns where a NEW skill could help optimize workflows. "
         "Also, strongly consider the native concepts available in the current agent framework. "
         "For example, if this is 'jetski' or 'antigravity', suggest orchestrating Subagents, specialized Workflows, or MCP tools. "
-        "If this is 'claude_code' or 'gemini_cli', consider their native hooks and features.\n"
+        "If this is 'claude_code' or 'gemini_cli', consider their native hooks, configuration extensions, or packaging as formal extensions (see geminicli.com/extensions).\n"
         "If there is an opportunity to improve an existing skill, propose the exact update. "
         "If you identify a deficiency or a recurring context lookup pattern that warrants a BRAND NEW skill, "
         "use the 'skill-creator' mindset. Output a JSON block anywhere in your response formatted exactly like this:\n"
@@ -216,11 +216,12 @@ def main(config_path=None, force_days=None):
                         skill_name = skill_data.get("new_skill_name")
                         skill_content = skill_data.get("new_skill_content")
                         if skill_name and skill_content:
-                            skill_dir = os.path.expanduser(f"~/.gemini/skills/{skill_name}")
+                            base_repo = config.get("skill_repository", "~/.gemini/skills")
+                            skill_dir = os.path.expanduser(f"{base_repo}/{skill_name}")
                             os.makedirs(skill_dir, exist_ok=True)
                             with open(os.path.join(skill_dir, "SKILL.md"), "w") as sf:
                                 sf.write(skill_content)
-                            print(f"[AUTO-SKILL] Created new skill: {skill_name}")
+                            print(f"[AUTO-SKILL] Created new skill: {skill_name} at {skill_dir}")
                     except Exception as e:
                         print(f"Failed to auto-create skill: {e}")
 
