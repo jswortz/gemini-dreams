@@ -90,21 +90,22 @@ def get_recent_sessions(since_time, logs_dir):
                         })
     return sessions
 
-def analyze_session_headlessly(session_data, config):
+def analyze_session_headlessly(session_data, agent_name, config):
     transcript = json.dumps(session_data.get("messages", [])[-10:])
     latency_info = f"Avg Latency: {session_data.get('latency_ms')}ms" if session_data.get("latency_ms") else ""
     skills_info = f"Skills Lineage: {json.dumps(session_data.get('skills'))}" if session_data.get("skills") else ""
     
     prompt = (
-        "Review the following transcript snippet from a recent session. "
-        "Identify if I repeated myself, wasted tokens, or failed to solve the user's problem efficiently. "
-        "If there is an opportunity to improve a skill (like antigravity, jetski, or gemini cli), propose the exact update. "
-        "Propose an evaluation to ensure this new behavior works in the future. "
-
+        f"Review the following transcript snippet from a recent {agent_name} session. "
+        "Identify if I repeated myself, wasted tokens, or failed to solve the user's problem efficiently.\n"
+        "Analyze the transcript and actively search for patterns where a NEW skill could help optimize workflows. "
+        "Also, strongly consider the native concepts available in the current agent framework. "
+        "For example, if this is 'jetski' or 'antigravity', suggest orchestrating Subagents, specialized Workflows, or MCP tools. "
+        "If this is 'claude_code' or 'gemini_cli', consider their native hooks and features.\n"
+        "If there is an opportunity to improve an existing skill, propose the exact update. "
         "If you identify a deficiency or a recurring context lookup pattern that warrants a BRAND NEW skill, "
-        "output a JSON block anywhere in your response formatted exactly like this:\n"
+        "use the 'skill-creator' mindset. Output a JSON block anywhere in your response formatted exactly like this:\n"
         "```json\n{\"new_skill_name\": \"my-new-skill\", \"new_skill_content\": \"YAML frontmatter and markdown instructions...\"}\n```\n"
-
         f"\n{latency_info}\n{skills_info}\n"
         f"Transcript:\n{transcript}"
     )
@@ -203,7 +204,7 @@ def main(config_path=None, force_days=None):
             print(f"DEBUG count={session['turn_count']} threshold={turn_threshold}")
             if session["turn_count"] >= turn_threshold:
                 print(f"Analyzing high-turn session {session['id']} for {agent_name}...")
-                epiphany = analyze_session_headlessly(session["data"], config)
+                epiphany = analyze_session_headlessly(session["data"], agent_name, config)
                 print("Epiphany:", epiphany[:100] + "...")
 
                 # Check for auto-skill creation
