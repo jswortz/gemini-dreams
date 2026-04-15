@@ -7,20 +7,15 @@ from datetime import datetime
 from config_loader import load_config
 
 def get_skill_lineage():
-    # Detect both Gemini and Claude project roots
     roots = [
         os.path.expanduser("~/.gemini/skills"),
         os.path.expanduser("~/.claude/skills"),
     ]
-    
-    # Try local project skills if directories are set
     for env_var in ["GEMINI_PROJECT_DIR", "CLAUDE_PROJECT_DIR"]:
         if env_var in os.environ:
-            local_skills = os.path.join(os.environ[env_var], ".gemini/skills")
-            roots.append(local_skills)
-            local_claude_skills = os.path.join(os.environ[env_var], ".claude/skills")
-            roots.append(local_claude_skills)
-
+            roots.append(os.path.join(os.environ[env_var], ".gemini/skills"))
+            roots.append(os.path.join(os.environ[env_var], ".claude/skills"))
+            
     lineage = {}
     for root in roots:
         if not os.path.exists(root):
@@ -30,14 +25,26 @@ def get_skill_lineage():
                 skill_path = os.path.join(root, skill_name)
                 if not os.path.isdir(skill_path):
                     continue
+                # Try VERSION first
                 version_file = os.path.join(skill_path, "VERSION")
                 if os.path.exists(version_file):
                     with open(version_file, "r") as f:
                         lineage[skill_name] = f.read().strip()
+                else:
+                    # Try SKILL.md frontmatter for version, otherwise default to 1.0.0
+                    skill_md = os.path.join(skill_path, "SKILL.md")
+                    version = "1.0.0"
+                    if os.path.exists(skill_md):
+                        with open(skill_md, "r") as f:
+                            for i, line in enumerate(f):
+                                if i > 50: break # only check top
+                                if line.startswith("version:"):
+                                    version = line.split(":", 1)[1].strip().strip('"\'')
+                                    break
+                    lineage[skill_name] = version
         except Exception:
             pass
     return lineage
-
 def main():
     start_time = time.time()
     
@@ -79,6 +86,40 @@ def main():
         data["agent_name"] = agent_name
         data["cli_type"] = "gemini" if "GEMINI_PROJECT_DIR" in os.environ else "claude"
         
+        
+        # Try to extract tool & model metadata
+        # Some hooks pass 'model', or it could be inside 'prompt' or 'response'
+        if 'model' in data:
+            pass # already there
+        elif 'model_name' in data:
+            data['model'] = data['model_name']
+        elif 'GEMINI_MODEL' in os.environ:
+            data['model'] = os.environ['GEMINI_MODEL']
+        else:
+            data['model'] = 'gemini-3-flash-preview' # Assumed fallback per rule
+        
+        # Tools: if the payload contains tools_called or similar
+        tools = []
+        if 'tools_called' in data:
+            tools = data['tools_called']
+        elif 'tools' in data:
+            tools = data['tools']
+        elif 'tool_calls' in data:
+            tools = data['tool_calls']
+        elif 'response' in data and '"name":' in str(data['response']):
+            # naive heuristic if it's stringified
+            pass
+
+        if tools:
+            data['tools_used'] = tools
+
+        # For debug, save full raw input
+        try:
+            with open(os.path.join(logs_dir, "latest_raw_payload.json"), "w") as rf:
+                rf.write(input_data)
+        except Exception:
+            pass
+
         with open(log_file, "a") as f:
             f.write(json.dumps(data) + "\n")
             
