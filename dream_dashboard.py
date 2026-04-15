@@ -11,13 +11,33 @@ st.set_page_config(page_title="Gemini Nightly Dream Dashboard", layout="wide")
 st.title("🌙 Gemini Nightly Dream Dashboard")
 st.markdown("Metrics and epiphanies generated from the self-aware agent eval sessions.")
 
+import json
+
+def load_config():
+    try:
+        with open("config.json", "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"bigquery": {"project_id": "wortz-project-352116", "dataset_id": "gemini_dreams"}}
+
 def load_data(query):
     try:
-        conn = sqlite3.connect(DREAM_METRICS_DB)
-        df = pd.read_sql_query(query, conn)
-        conn.close()
+        config = load_config()
+        from google.cloud import bigquery
+        client = bigquery.Client(project=config["bigquery"]["project_id"])
+        
+        # Rewrite query slightly if needed, assuming BQ dataset
+        dataset_id = config["bigquery"]["dataset_id"]
+        table_prefix = config.get("bigquery", {}).get("table_prefix", "dream_")
+        
+        # Replace table names with BQ table names
+        bq_query = query.replace("eval_coverage", f"{dataset_id}.{table_prefix}eval_coverage")
+        bq_query = bq_query.replace("session_analysis", f"{dataset_id}.{table_prefix}session_analysis")
+        
+        df = client.query(bq_query).to_dataframe()
         return df
     except Exception as e:
+        st.error(f"Failed to load data: {e}")
         return pd.DataFrame()
 
 # ---- 1. Eval Coverage ----
@@ -48,7 +68,7 @@ if not analysis_df.empty:
     for idx, row in analysis_df.iterrows():
         with st.expander(f"Session {row['session_id']} (Turns: {row['turn_count']}) - {row['timestamp']}"):
             st.markdown("**Agent's Epiphany / Proposed Skill Update:**")
-            st.text_area("", value=row['epiphanies'], height=200, disabled=True)
+            st.text_area("", value=row['epiphanies'], height=200, disabled=True, key=f"text_area_{idx}_{row['session_id']}")
 else:
     st.info("No dream sessions logged yet. Ensure dream_runner.py runs nightly.")
 

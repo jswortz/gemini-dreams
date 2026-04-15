@@ -2,26 +2,26 @@
     "agents": {
         "gemini_cli": {
             "logs_dir": "~/.gemini/sessions",
-            "turn_threshold": 5
+            "turn_threshold": 1
         },
         "antigravity": {
             "logs_dir": "~/.antigravity/sessions",
-            "turn_threshold": 5
+            "turn_threshold": 1
         },
         "jetski": {
             "logs_dir": "~/.jetski/sessions",
-            "turn_threshold": 5
+            "turn_threshold": 1
         },
         "claude_code": {
             "logs_dir": "~/.claude/sessions",
-            "turn_threshold": 5
+            "turn_threshold": 1
         }
     },
     "db_path": "~/.gemini/dream_metrics.db",
     "state_path": "~/.gemini/dream_state.json",
     "bigquery": {
-        "enabled": false,
-        "project_id": "your-project-id",
+        "enabled": true,
+        "project_id": "wortz-project-352116",
         "dataset_id": "gemini_dreams",
         "table_prefix": "dream_"
     },
