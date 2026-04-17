@@ -1,100 +1,168 @@
 #!/usr/bin/env python3
+"""Install native log hooks for Gemini CLI and Claude Code.
+
+Gemini CLI uses an `AfterAgent` event with matchers; Claude Code uses a `Stop`
+event (no matcher) that fires whenever the assistant finishes a turn. The two
+CLIs have different hook schemas, so we write distinct configs to each settings
+file.
+"""
 import os
 import json
 import sys
 
-def get_config_paths():
-    """Identify potential Gemini and Claude configuration files."""
-    return {
-        "gemini": os.path.expanduser("~/.gemini/settings.json"),
-        "claude": os.path.expanduser("~/.clauderc")
-    }
 
-def update_config(config_path, hook_command):
-    """Safely add or update the AfterAgent hook in a JSON configuration file."""
-    if not os.path.exists(config_path):
-        print(f"Creating new configuration file at {config_path}...")
-        config = {"hooks": {"AfterAgent": []}}
-    else:
-        try:
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-        except json.JSONDecodeError:
-            print(f"Error: {config_path} is not a valid JSON file. Skipping.")
-            return False
+GEMINI_SETTINGS = os.path.expanduser("~/.gemini/settings.json")
+CLAUDE_SETTINGS = os.path.expanduser("~/.claude/settings.json")
 
-    if "hooks" not in config:
-        config["hooks"] = {}
-    if "AfterAgent" not in config["hooks"]:
-        config["hooks"]["AfterAgent"] = []
 
-    # Prepare hook configurations
-    new_hooks = [
+def _load(path):
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        print(f"  ❌ {path} is not valid JSON. Skipping.")
+        return None
+
+
+def _save(path, config):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(config, f, indent=2)
+
+
+def install_gemini(hook_command):
+    """Append AfterAgent hooks to ~/.gemini/settings.json (Gemini CLI schema)."""
+    config = _load(GEMINI_SETTINGS)
+    if config is None:
+        return False
+    if not config:
+        print(f"  📄 Creating new {GEMINI_SETTINGS}")
+
+    config.setdefault("hooks", {})
+    config["hooks"].setdefault("AfterAgent", [])
+
+    new_entries = [
         {
             "matcher": "jetski",
             "hooks": [
-                {
-                    "name": "jetski-logger",
-                    "type": "command",
-                    "command": f"{hook_command} jetski"
-                }
-            ]
+                {"name": "jetski-logger", "type": "command",
+                 "command": f"{hook_command} jetski"}
+            ],
         },
         {
             "matcher": "*",
             "hooks": [
-                {
-                    "name": "default-logger",
-                    "type": "command",
-                    "command": f"{hook_command} gemini_cli"
-                }
-            ]
-        }
+                {"name": "default-logger", "type": "command",
+                 "command": f"{hook_command} gemini_cli"}
+            ],
+        },
     ]
 
-    # Check for existing hooks with the same names to avoid duplicates
-    existing_hook_names = []
-    for entry in config["hooks"]["AfterAgent"]:
-        for hook in entry.get("hooks", []):
-            existing_hook_names.append(hook.get("name"))
+    existing_names = {
+        h.get("name")
+        for entry in config["hooks"]["AfterAgent"]
+        for h in entry.get("hooks", [])
+    }
 
-    for new_entry in new_hooks:
-        hook_name = new_entry["hooks"][0]["name"]
-        if hook_name not in existing_hook_names:
-            config["hooks"]["AfterAgent"].append(new_entry)
-            print(f"  ✅ Added '{hook_name}' hook to {config_path}")
-        else:
-            print(f"  ⏭️ Hook '{hook_name}' already exists in {config_path}. Skipping.")
+    added = 0
+    for entry in new_entries:
+        name = entry["hooks"][0]["name"]
+        if name in existing_names:
+            print(f"  ⏭️  {name} already in {GEMINI_SETTINGS}")
+            continue
+        config["hooks"]["AfterAgent"].append(entry)
+        print(f"  ✅ Added {name} to {GEMINI_SETTINGS}")
+        added += 1
 
-    with open(config_path, 'w') as f:
-        json.dump(config, f, indent=4)
+    _save(GEMINI_SETTINGS, config)
+    return added > 0 or bool(existing_names)
+
+
+def install_claude(hook_command):
+    """Register a Stop hook in ~/.claude/settings.json (Claude Code schema).
+
+    Claude Code's Stop event has no `matcher` field. We give the entry a
+    sentinel substring (`gemini-dreams-logger`) in the command so this script
+    is idempotent across re-runs.
+    """
+    config = _load(CLAUDE_SETTINGS)
+    if config is None:
+        return False
+    if not config:
+        print(f"  📄 Creating new {CLAUDE_SETTINGS}")
+
+    config.setdefault("hooks", {})
+    config["hooks"].setdefault("Stop", [])
+    config["hooks"].setdefault("UserPromptSubmit", [])
+
+    sentinel = "# gemini-dreams-logger"
+    stop_command = f"{hook_command} claude_code {sentinel}"
+
+    def _already_present(event_list):
+        for entry in event_list:
+            for h in entry.get("hooks", []):
+                if sentinel in (h.get("command") or ""):
+                    return True
+        return False
+
+    added = 0
+    if _already_present(config["hooks"]["Stop"]):
+        print(f"  ⏭️  Stop hook already in {CLAUDE_SETTINGS}")
+    else:
+        config["hooks"]["Stop"].append({
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": stop_command,
+                }
+            ]
+        })
+        print(f"  ✅ Added Stop hook to {CLAUDE_SETTINGS}")
+        added += 1
+
+    if _already_present(config["hooks"]["UserPromptSubmit"]):
+        print(f"  ⏭️  UserPromptSubmit hook already in {CLAUDE_SETTINGS}")
+    else:
+        config["hooks"]["UserPromptSubmit"].append({
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": stop_command,
+                }
+            ]
+        })
+        print(f"  ✅ Added UserPromptSubmit hook to {CLAUDE_SETTINGS}")
+        added += 1
+
+    _save(CLAUDE_SETTINGS, config)
     return True
 
+
 def main():
-    print("🚀 Scripting native log hook installation for Gemini CLI and Claude Code...")
-    
-    # Get the absolute path to native_log_hook.py
+    print("🚀 Installing native log hooks for Gemini CLI and Claude Code...")
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    hook_script_path = os.path.join(script_dir, "native_log_hook.py")
-    
-    if not os.path.exists(hook_script_path):
-        print(f"❌ Error: {hook_script_path} not found. Please run this from the repo root.")
+    hook_script = os.path.join(script_dir, "native_log_hook.py")
+    if not os.path.exists(hook_script):
+        print(f"❌ {hook_script} not found. Run from the repo root.")
         sys.exit(1)
 
-    hook_command = f"python3 {hook_script_path}"
-    config_paths = get_config_paths()
+    hook_command = f"python3 {hook_script}"
 
-    updated_any = False
-    for cli_type, path in config_paths.items():
-        print(f"Checking {cli_type} configuration...")
-        if update_config(path, hook_command):
-            updated_any = True
+    print("\nGemini CLI:")
+    install_gemini(hook_command)
 
-    if updated_any:
-        print("\n✨ Installation complete! Your interactions will now be automatically logged.")
-        print(f"Logs will be stored in ~/.gemini/sessions/ and ~/.jetski/sessions/")
-    else:
-        print("\n❌ No configuration files were updated.")
+    print("\nClaude Code:")
+    install_claude(hook_command)
+
+    print(
+        "\n✨ Done. Logs will land in:"
+        "\n   ~/.gemini/sessions/   (Gemini CLI / jetski)"
+        "\n   ~/.claude/sessions/   (Claude Code)"
+    )
+
 
 if __name__ == "__main__":
     main()
