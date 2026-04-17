@@ -101,18 +101,20 @@ tests:
             c.execute("INSERT INTO eval_coverage VALUES (?, ?, ?, ?)",
                       (now, item, int(has_eval), missing_guide))
             
-            # BigQuery Coverage
+            # BigQuery Coverage. Note: BQ table schema is
+            # (timestamp, skill_name, has_evals); missing_guide stays SQLite-only.
             if bq_client and table_id_coverage:
                 rows_to_insert = [
                     {
                         "timestamp": now,
                         "skill_name": item,
                         "has_evals": int(has_eval),
-                        "missing_guide": missing_guide
                     }
                 ]
                 try:
-                    bq_client.insert_rows_json(table_id_coverage, rows_to_insert)
+                    errors = bq_client.insert_rows_json(table_id_coverage, rows_to_insert)
+                    if errors:
+                        print(f"Failed to insert coverage into BigQuery: {errors}")
                 except Exception as e:
                     print(f"Failed to insert coverage into BigQuery: {e}")
             
@@ -132,7 +134,9 @@ tests:
                         }
                     ]
                     try:
-                        bq_client.insert_rows_json(table_id_results, rows_to_insert)
+                        errors = bq_client.insert_rows_json(table_id_results, rows_to_insert)
+                        if errors:
+                            print(f"Failed to insert results into BigQuery: {errors}")
                     except Exception as e:
                         print(f"Failed to insert results into BigQuery: {e}")
                 
