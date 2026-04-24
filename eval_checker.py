@@ -52,7 +52,7 @@ To fix this:
 def main(config_path=None):
     config = load_config(config_path)
     # Fallback to default path if not in config
-    skills_dir = os.path.expanduser(config.get("skills_dir", "~/.gemini/skills"))
+    skills_dir = os.path.expanduser(config.get("skill_repository", "~/.gemini/skills"))
     print(f"Scanning skills in {skills_dir} for eval coverage...")
     conn = init_db(config)
     c = conn.cursor()

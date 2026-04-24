@@ -1,6 +1,14 @@
+FROM node:22-slim AS frontend
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --registry https://registry.npmjs.org
+COPY frontend/ ./
+RUN npm run build
+
 FROM python:3.11-slim
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache streamlit pandas db-dtypes google-cloud-bigquery
+COPY api.py config.json ./
+COPY --from=frontend /build/dist ./frontend/dist
+RUN pip install --no-cache fastapi uvicorn google-cloud-bigquery
 EXPOSE 8080
-CMD ["streamlit", "run", "dream_dashboard.py", "--server.port=8080", "--server.address=0.0.0.0"]
+CMD ["python", "api.py"]
