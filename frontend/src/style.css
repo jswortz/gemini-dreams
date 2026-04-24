@@ -48,13 +48,33 @@ p {
 
 main {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
+}
+
+.card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 320px;
+}
+
+.stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
   main {
     grid-template-columns: 1fr;
+  }
+  .chart-wrap {
+    height: 250px;
   }
 }
 
@@ -231,4 +251,127 @@ pre {
 .error {
   color: #f87171;
   text-align: center;
+}
+
+/* Skill Summary */
+.skill-summary {
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.skill-summary h3 {
+  margin: 0 0 0.75rem;
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.skill-tag {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.skill-summary-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Insight Chips */
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.insight-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.insight-chip.epiphany {
+  background: rgba(250, 204, 21, 0.08);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  color: #fde68a;
+}
+
+.insight-chip.waste {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+}
+
+.insight-icon {
+  flex-shrink: 0;
+}
+
+/* Review Badge */
+.dream-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.review-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.review-badge.pending {
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+}
+
+.review-badge.reviewed {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.turn-badge {
+  background: #334155;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #38bdf8;
+}
+
+/* Epiphany Details */
+.epiphany-details {
+  margin-top: 0.5rem;
+}
+
+.epiphany-details summary {
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  padding: 0.25rem 0;
+}
+
+.epiphany-details summary:hover {
+  color: #e2e8f0;
+}
+
+/* Skill-creating dream item highlight */
+.dream-item.has-skill {
+  border-color: rgba(16, 185, 129, 0.3);
 }

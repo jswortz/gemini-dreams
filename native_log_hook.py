@@ -58,7 +58,6 @@ def _extract_text(content):
             if btype == "text":
                 parts.append(block.get("text", ""))
             elif btype == "thinking":
-                # Skip silent reasoning
                 continue
             elif btype == "tool_use":
                 parts.append(f"[tool_use:{block.get('name')}]")
@@ -68,6 +67,30 @@ def _extract_text(content):
                     parts.append(f"[tool_result] {tr[:500]}")
         return "\n".join(p for p in parts if p)
     return ""
+
+
+def _extract_text_only(content):
+    """Extract only real text blocks from content, ignoring tool_use/tool_result."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
+def _extract_tool_names(content):
+    """Extract tool names from tool_use blocks in message content."""
+    if not isinstance(content, list):
+        return []
+    return [
+        block.get("name")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name")
+    ]
 
 
 def _normalize_claude_payload(data):
@@ -80,7 +103,6 @@ def _normalize_claude_payload(data):
         "transcript_path": data.get("transcript_path"),
     }
 
-    # UserPromptSubmit gives us the prompt directly
     if "prompt" in data:
         out["prompt"] = data["prompt"]
 
@@ -88,6 +110,8 @@ def _normalize_claude_payload(data):
     if transcript_path and os.path.exists(transcript_path):
         last_user_text = None
         last_assistant_text = None
+        last_text_response = None
+        all_tools = []
         try:
             with open(transcript_path, "r") as tf:
                 for line in tf:
@@ -99,20 +123,25 @@ def _normalize_claude_payload(data):
                     msg = entry.get("message") or {}
                     if etype == "user" and msg.get("role") == "user":
                         text = _extract_text(msg.get("content"))
-                        # Skip pure tool_result feedback turns; keep real user prompts
                         if text and not text.startswith("[tool_result]"):
                             last_user_text = text
                     elif etype == "assistant" and msg.get("role") == "assistant":
-                        text = _extract_text(msg.get("content"))
+                        content = msg.get("content")
+                        text = _extract_text(content)
                         if text:
                             last_assistant_text = text
+                        real_text = _extract_text_only(content)
+                        if real_text:
+                            last_text_response = real_text
+                        all_tools.extend(_extract_tool_names(content))
         except Exception:
             pass
 
         if last_user_text and "prompt" not in out:
             out["prompt"] = last_user_text
-        if last_assistant_text:
-            out["prompt_response"] = last_assistant_text
+        out["prompt_response"] = last_text_response or last_assistant_text
+        if all_tools:
+            out["tools_used"] = list(dict.fromkeys(all_tools))
 
     return out
 

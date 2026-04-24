@@ -15,6 +15,10 @@
         "claude_code": {
             "logs_dir": "~/.claude/sessions",
             "turn_threshold": 1
+        },
+        "router": {
+            "logs_dir": "~/.router/sessions",
+            "turn_threshold": 1
         }
     },
     "db_path": "~/.gemini/dream_metrics.db",
